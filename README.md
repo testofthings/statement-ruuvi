@@ -1,7 +1,17 @@
-# statement-ruuvi
-Security Statement for Ruuvi Gateway & Tags. Created for Rauli Kaksonen's PhD research ([link](https://urn.fi/URN:NBN:fi:oulu-202406264941)). The data for verifying the security statement is available for academic research. Please request it from Rauli and specify the goals of the research and the organization performing it. The right to refuse requests is reserved.
+# Seurity statement: Ruuvi Gateway & Tags
 
-Run the statement with:
+| ⚠  Note | This is an unofficial security statement not endorsed by the manufacturer. |
+|---------|--------------------------------|
+
+Security Statement for Ruuvi Gateway & Tags measurement IoT product by [Ruuvi](https://ruuvi.com/).
+This statement was originally created for Rauli Kaksonen's [doctoral research](https://urn.fi/URN:NBN:fi:oulu-202406264941).
+
+## Security statements
+
+Security statements are descriptions of the security posture of IoT devices or products.
+For more information and tools for security statements, see the [Toolsaf](https://github.com/testofthings/toolsaf) framework.
+
+Once you have set up the Toolsaf, you can run the statement with:
 ```shell
 python ruuvi/statement.py
 ```
