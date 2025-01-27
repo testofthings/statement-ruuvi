@@ -11,7 +11,14 @@ This statement was originally created for Rauli Kaksonen's [doctoral research](h
 Security statements are descriptions of the security posture of IoT devices or products.
 For more information and tools for security statements, see the [Toolsaf](https://github.com/testofthings/toolsaf) framework.
 
-Once you have set up the Toolsaf, you can run the statement with:
+Once you have set up Toolsaf, you can run the statement with:
 ```shell
 python ruuvi/statement.py
 ```
+
+## Known issues
+
+This security statement has the following known issues:
+
+  - The security statement only covers the Ruuvi Gateway's default services; configuration can enable additional ones.
+  - As the product's manufacturer has not been involved, the statement may lack features not observed when the statement was constructed.
