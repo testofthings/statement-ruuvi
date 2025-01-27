@@ -6,17 +6,22 @@
 Security Statement for Ruuvi Gateway & Tags measurement IoT product by [Ruuvi](https://ruuvi.com/).
 This statement was originally created for Rauli Kaksonen's [doctoral research](https://urn.fi/URN:NBN:fi:oulu-202406264941).
 
-## Security statements
+## Security Statements
 
-Security statements are descriptions of the security posture of IoT devices or products.
-For more information and tools for security statements, see the [Toolsaf](https://github.com/testofthings/toolsaf) framework.
+Security statements are descriptions of the security posture of IoT devices or products. For more information on security statements and relevant tools, see the [Toolsaf](https://github.com/testofthings/toolsaf) framework.
 
 Once you have set up Toolsaf, you can run the statement with:
 ```shell
 python ruuvi/statement.py
 ```
 
-## Known issues
+## Toolsaf Diagram
+
+Toolsaf creates the following visualization for the statement:
+
+<img src="Ruuvi Gateway & Tags.png" width="40%" alt="Ruuvi Gateway & Tags diagram"></br>
+
+## Known Issues
 
 This security statement has the following known issues:
 
