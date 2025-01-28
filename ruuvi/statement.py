@@ -39,7 +39,6 @@ mobile >> backend_2 / TLS
 
 any_host = system.any("Service")
 gateway >> any_host / DHCP / DNS / NTP / ICMP
-gateway / ICMP
 
 tags.set_property("default", "sensors")  # ETSI TS 103 701 requires this info
 
