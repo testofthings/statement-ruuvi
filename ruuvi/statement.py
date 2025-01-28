@@ -93,5 +93,45 @@ mobile.hw("c2:77:15:ab:b5:b0")
 # Infrastructure Raspberry can do whatever
 infra = system.infra().hw("dc:a6:32:28:34:e3")
 
+# Ignore False positives
+system.ignore(file_type="vulnerabilities").properties(
+    "vulnz:commons-beanutils:cve-2019-10086",
+    "vulnz:commons-beanutils:cve-2014-0114",
+    "vulnz:commons-collections:cve-2015-6420",
+    "vulnz:commons-collections:cve-2015-8545",
+    #"vulnz:commons-collections:cve-2017-15708", # Maybe not exploitable?
+).at(mobile.software()).because("Does not serialize/deserialize custom Java data")
+
+system.ignore(file_type="vulnerabilities").properties(
+    "vulnz:kotlin:cve-2019-10101",
+    "vulnz:kotlin:cve-2019-10103",
+    "vulnz:kotlin:cve-2019-10102"
+).at(mobile.software()).because("Not feasible to MITM the application build process")
+
+
+system.ignore(file_type="ssh-audit").properties(
+    "ssh-audit:del:kex:ecdh-sha2-nistp256",
+    "ssh-audit:del:kex:ecdh-sha2-nistp384",
+    "ssh-audit:del:kex:ecdh-sha2-nistp521",
+    "ssh-audit:del:key:ecdsa-sha2-nistp256",
+    "ssh-audit:del:key:ssh-rsa"
+).at(web_1/SSH, web_2/SSH).because("Key deletion is not relevant")
+
+system.ignore(file_type="ssh-audit").properties(
+    "ssh-audit:del:kex:diffie-hellman-group14-sha1",
+    "ssh-audit:del:mac:hmac-sha1",
+    "ssh-audit:del:mac:hmac-sha1-etm@openssh.com"
+).at(web_2/SSH).because("Key deletion is not relevant")
+
+
+system.ignore(file_type="testssl").properties(
+    "testssl:cipher_order"
+).at(web_2 / TLS).because("Provided cypher order is a neglectable issue")
+
+system.ignore(file_type="testssl").properties(
+    "testssl:BREACH"
+).at(web_1/TLS, web_2/TLS, backend_2/TLS).because("Does not reflect user input or any secret in HTTP response bodies")
+
+
 if __name__ == "__main__":
     system.run()
