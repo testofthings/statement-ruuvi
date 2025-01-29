@@ -113,32 +113,32 @@ system.ignore(file_type="vulnerabilities").properties(
 ).at(mobile.software()).because("For old version")
 
 system.ignore(file_type="ssh-audit").properties(
-    "ssh-audit:del:kex:ecdh-sha2-nistp256",
-    "ssh-audit:del:kex:ecdh-sha2-nistp384",
-    "ssh-audit:del:kex:ecdh-sha2-nistp521",
-    "ssh-audit:del:key:ecdsa-sha2-nistp256",
-    "ssh-audit:del:key:ssh-rsa"
+    "ssh-audit:del:kex:ecdh-sha2-nistp256",  # SSH audit: Delete kex ecdh-sha2-nistp256
+    "ssh-audit:del:kex:ecdh-sha2-nistp384",  # SSH audit: Delete kex ecdh-sha2-nistp384
+    "ssh-audit:del:kex:ecdh-sha2-nistp521",  # SSH audit: Delete kex ecdh-sha2-nistp521
+    "ssh-audit:del:key:ecdsa-sha2-nistp256", # SSH audit: Delete key ecdsa-sha2-nistp256
+    "ssh-audit:del:key:ssh-rsa"              # SSH audit: Delete key ssh-rsa
 ).at(web_1 / SSH, web_2 / SSH).because("Key deletion is not relevant")
 
 system.ignore(file_type="ssh-audit").properties(
-    "ssh-audit:del:kex:diffie-hellman-group14-sha1",
-    "ssh-audit:del:mac:hmac-sha1",
-    "ssh-audit:del:mac:hmac-sha1-etm@openssh.com"
+    "ssh-audit:del:kex:diffie-hellman-group14-sha1", # SSH audit: Delete kex diffie-hellman-group14-sha1
+    "ssh-audit:del:mac:hmac-sha1",                   # SSH audit: Delete mac hmac-sha1
+    "ssh-audit:del:mac:hmac-sha1-etm@openssh.com"    # SSH audit: Delete mac hmac-sha1-etm@openssh.com
 ).at(web_2 / SSH).because("Key deletion is not relevant")
 
 system.ignore(file_type="testssl").properties(
-    "testssl:cipher_order"
+    "testssl:cipher_order" # Testssl.sh (cipher_order): NOT a cipher order configured
 ).at(web_2 / TLS).because("Provided cypher order is a neglectable issue")
 
 system.ignore(file_type="testssl").properties(
-    "testssl:BREACH"
+    "testssl:BREACH"      # Testssl.sh (BREACH): potentially VULNERABLE, gzip HTTP compression detected  - only supplied '/' tested
 ).at(web_1 / TLS, web_2 / TLS, backend_2 / TLS).because("Does not reflect user input or any secret in HTTP response bodies")
 
 system.ignore(file_type="zap").properties(
-    "zed:10038",
-    "zed:10020-1",
-    "zed:10098",
-    "zed:10202",
+    "zap:10038",   # ZED Attack Proxy (10038): Content Security Policy (CSP) Header Not Set
+    "zap:10020-1", # ZED Attack Proxy (10020-1): Missing Anti-clickjacking Header
+    "zap:10098",   # ZED Attack Proxy (10098): Cross-Domain Misconfiguration
+    "zap:10202",   # ZED Attack Proxy (10202): Absence of Anti-CSRF Tokens
 ).at(web_1 / TLS, web_2 / TLS).because("Not considered critical at this point")
 
 
