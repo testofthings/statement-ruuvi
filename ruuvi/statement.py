@@ -97,8 +97,9 @@ system.ignore(file_type="vulnerabilities").properties(
     "vulnz:commons-beanutils:cve-2019-10086",
     "vulnz:commons-beanutils:cve-2014-0114",
     "vulnz:commons-collections:cve-2015-6420",
+    "vulnz:commons-collections:cve-2015-7501",
     "vulnz:commons-collections:cve-2015-8545",
-    #"vulnz:commons-collections:cve-2017-15708", # Maybe not exploitable?
+    "vulnz:commons-collections:cve-2017-15708",
 ).at(mobile.software()).because("Does not serialize/deserialize custom Java data")
 
 system.ignore(file_type="vulnerabilities").properties(
@@ -107,6 +108,9 @@ system.ignore(file_type="vulnerabilities").properties(
     "vulnz:kotlin:cve-2019-10102"
 ).at(mobile.software()).because("Not feasible to MITM the application build process")
 
+system.ignore(file_type="vulnerabilities").properties(
+    "vulnz:okhttp:cve-2016-2402",
+).at(mobile.software()).because("For old version")
 
 system.ignore(file_type="ssh-audit").properties(
     "ssh-audit:del:kex:ecdh-sha2-nistp256",
@@ -122,7 +126,6 @@ system.ignore(file_type="ssh-audit").properties(
     "ssh-audit:del:mac:hmac-sha1-etm@openssh.com"
 ).at(web_2/SSH).because("Key deletion is not relevant")
 
-
 system.ignore(file_type="testssl").properties(
     "testssl:cipher_order"
 ).at(web_2 / TLS).because("Provided cypher order is a neglectable issue")
@@ -130,6 +133,13 @@ system.ignore(file_type="testssl").properties(
 system.ignore(file_type="testssl").properties(
     "testssl:BREACH"
 ).at(web_1/TLS, web_2/TLS, backend_2/TLS).because("Does not reflect user input or any secret in HTTP response bodies")
+
+system.ignore(file_type="zap").properties(
+    "zed:10038",
+    "zed:10020-1",
+    "zed:10098",
+    "zed:10202",
+).at(web_1 / TLS, web_2 / TLS).because("Not considered critical at this point")
 
 
 if __name__ == "__main__":
