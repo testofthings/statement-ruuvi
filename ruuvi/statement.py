@@ -12,8 +12,7 @@ gateway = system.device("Ruuvi Gateway").serve(EAPOL, DHCP, ARP, ICMP, DNS(capti
 setup_http = gateway / HTTP(auth=True)
 
 tags = system.device("Ruuvi Tags")
-ble_ad = system.broadcast(BLEAdvertisement(event_type=0x03))
-tags >> ble_ad
+ble_ad = tags.broadcast(BLEAdvertisement(event_type=0x03))
 gateway << ble_ad
 
 user = system.browser()
