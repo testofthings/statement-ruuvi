@@ -91,5 +91,55 @@ mobile.hw("c2:77:15:ab:b5:b0")
 # Infrastructure Raspberry can do whatever
 infra = system.infra().hw("dc:a6:32:28:34:e3")
 
+# Ignore False positives
+system.ignore(file_type="vulnerabilities").properties(
+    "vulnz:commons-beanutils:cve-2019-10086",
+    "vulnz:commons-beanutils:cve-2014-0114",
+    "vulnz:commons-collections:cve-2015-6420",
+    "vulnz:commons-collections:cve-2015-7501",
+    "vulnz:commons-collections:cve-2015-8545",
+    "vulnz:commons-collections:cve-2017-15708",
+).at(mobile.software()).because("Does not serialize/deserialize custom Java data")
+
+system.ignore(file_type="vulnerabilities").properties(
+    "vulnz:kotlin:cve-2019-10101",
+    "vulnz:kotlin:cve-2019-10103",
+    "vulnz:kotlin:cve-2019-10102"
+).at(mobile.software()).because("Not feasible to MITM the application build process")
+
+system.ignore(file_type="vulnerabilities").properties(
+    "vulnz:okhttp:cve-2016-2402",
+).at(mobile.software()).because("For old version")
+
+system.ignore(file_type="ssh-audit").properties(
+    "ssh-audit:del:kex:ecdh-sha2-nistp256",  # SSH audit: Delete kex ecdh-sha2-nistp256
+    "ssh-audit:del:kex:ecdh-sha2-nistp384",  # SSH audit: Delete kex ecdh-sha2-nistp384
+    "ssh-audit:del:kex:ecdh-sha2-nistp521",  # SSH audit: Delete kex ecdh-sha2-nistp521
+    "ssh-audit:del:key:ecdsa-sha2-nistp256", # SSH audit: Delete key ecdsa-sha2-nistp256
+    "ssh-audit:del:key:ssh-rsa"              # SSH audit: Delete key ssh-rsa
+).at(web_1 / SSH, web_2 / SSH).because("Key deletion is not relevant")
+
+system.ignore(file_type="ssh-audit").properties(
+    "ssh-audit:del:kex:diffie-hellman-group14-sha1", # SSH audit: Delete kex diffie-hellman-group14-sha1
+    "ssh-audit:del:mac:hmac-sha1",                   # SSH audit: Delete mac hmac-sha1
+    "ssh-audit:del:mac:hmac-sha1-etm@openssh.com"    # SSH audit: Delete mac hmac-sha1-etm@openssh.com
+).at(web_2 / SSH).because("Key deletion is not relevant")
+
+system.ignore(file_type="testssl").properties(
+    "testssl:cipher_order" # Testssl.sh (cipher_order): NOT a cipher order configured
+).at(web_2 / TLS).because("Provided cypher order is a neglectable issue")
+
+system.ignore(file_type="testssl").properties(
+    "testssl:BREACH"      # Testssl.sh (BREACH): potentially VULNERABLE, gzip HTTP compression detected  - only supplied '/' tested
+).at(web_1 / TLS, web_2 / TLS, backend_2 / TLS).because("Does not reflect user input or any secret in HTTP response bodies")
+
+system.ignore(file_type="zap").properties(
+    "zap:10038",   # ZED Attack Proxy (10038): Content Security Policy (CSP) Header Not Set
+    "zap:10020-1", # ZED Attack Proxy (10020-1): Missing Anti-clickjacking Header
+    "zap:10098",   # ZED Attack Proxy (10098): Cross-Domain Misconfiguration
+    "zap:10202",   # ZED Attack Proxy (10202): Absence of Anti-CSRF Tokens
+).at(web_1 / TLS, web_2 / TLS).because("Not considered critical at this point")
+
+
 if __name__ == "__main__":
     system.run()
