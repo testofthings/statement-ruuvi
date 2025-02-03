@@ -112,6 +112,17 @@ system.ignore(file_type="vulnerabilities").properties(
 ).at(mobile.software()).because("For old version")
 
 system.ignore(file_type="ssh-audit").properties(
+    "ssh-audit:cve-2021-41617",
+    "ssh-audit:cve-2020-15778",
+).at(web_1 / SSH, web_2 / SSH).because("Vulnerabilies only in certain configurations")
+
+system.ignore(file_type="ssh-audit").properties(
+    "ssh-audit:cve-2018-15919",
+    "ssh-audit:cve-2018-15473",
+    "ssh-audit:cve-2016-20012",
+).at(web_1 / SSH, web_2 / SSH).because("Not considered serious issue")
+
+system.ignore(file_type="ssh-audit").properties(
     "ssh-audit:del:kex:ecdh-sha2-nistp256",  # SSH audit: Delete kex ecdh-sha2-nistp256
     "ssh-audit:del:kex:ecdh-sha2-nistp384",  # SSH audit: Delete kex ecdh-sha2-nistp384
     "ssh-audit:del:kex:ecdh-sha2-nistp521",  # SSH audit: Delete kex ecdh-sha2-nistp521
