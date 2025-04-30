@@ -7,6 +7,7 @@
 from toolsaf.main import Builder, ARP, ICMP, EAPOL, HTTP, BLEAdvertisement, TLS, SSH, DHCP, NTP, DNS
 
 system = Builder.new("Ruuvi Gateway & Tags")
+system.tag("ruuvi")
 
 gateway = system.device("Ruuvi Gateway").serve(EAPOL, DHCP, ARP, ICMP, DNS(captive=True))
 setup_http = gateway / HTTP(auth=True)
