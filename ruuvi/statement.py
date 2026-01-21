@@ -59,6 +59,8 @@ billing_info = system.data(["Billing info"])
 
 # Mobile application
 # https://play.google.com/store/apps/details?id=com.ruuvi.station
+app_sw = mobile.software()
+app_sw.sbom(file_path="mobile-app-sbom.json")
 
 # More DNS names (why?)
 backend_2.dns("api.github.com").dns("objects.githubusercontent.com")
