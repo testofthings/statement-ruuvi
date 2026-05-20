@@ -4,155 +4,214 @@
 
 # pylint: disable=pointless-statement
 
-from toolsaf.main import Builder, ARP, ICMP, EAPOL, HTTP, BLEAdvertisement, TLS, SSH, DHCP, NTP, DNS
+from toolsaf.main import Builder, ARP, ICMP, EAPOL, HTTP, BLEAdvertisement, TLS, DHCP, NTP, DNS, UDP, IP, TCP
+from toolsaf.common.android import (
+    LOCATION, BLUETOOTH, ADMINISTRATIVE, UNCATEGORIZED,
+    NETWORK
+)
 
+# Define system
 system = Builder.new("Ruuvi Gateway & Tags")
 system.tag("ruuvi")
+system.network(ip_mask="10.42.0.0/16")
 
-gateway = system.device("Ruuvi Gateway").serve(EAPOL, DHCP, ARP, ICMP, DNS(captive=True))
-setup_http = gateway / HTTP(auth=True)
-
-tags = system.device("Ruuvi Tags")
-ble_ad = tags.broadcast(BLEAdvertisement(event_type=0x03))
-gateway << ble_ad
-
-user = system.browser()
-user >> setup_http
-
-mobile = system.mobile("Ruuvi app")
-mobile << ble_ad
-
-HTTP_rd = HTTP().redirect()
-web_1 = system.backend("Home & Webshop").serve(SSH, TLS(auth=True)).dns("ruuvi.com")
-web_2 = system.backend("Data UI").serve(SSH, HTTP, NTP, TLS(auth=True)).dns("station.ruuvi.com")
-web_3 = system.backend("Analytics").serve(HTTP_rd, TLS).dns("gtm.ruuvi.com")
-user >> web_1 / TLS
-user >> web_2 / TLS
-user >> web_3 / TLS
-
-backend_1 = system.backend("Data backend").serve(TLS(auth=True)).dns("network.ruuvi.com")
-backend_2 = system.backend("Code repository").serve(HTTP_rd, TLS).dns("github.com")
-gateway >> backend_1 / TLS
-gateway >> backend_2 / TLS
-mobile >> backend_1 / TLS
-mobile >> backend_2 / TLS
-
+# Define any host
 any_host = system.any("Service")
-gateway >> any_host / DHCP / DNS / NTP / ICMP
 
-tags.set_property("default", "sensors")  # ETSI TS 103 701 requires this info
+# Define gateway
+gateway = system.device("Ruuvi Gateway").serve(HTTP)
+gateway / ARP / EAPOL
 
-fw_esp32 = gateway.software("ESP32 Firmware").updates_from(backend_2)
-fw_nRF52811 = gateway.software("nRF52811 Firmware").updates_from(backend_2)
+# Define tags
+tags = system.device("Ruuvi Tags")
 
-system.online_resource("privacy-policy", url="https://ruuvi.com/privacy/",
-                       keywords=["privacy policy"]
+# Define mobile app
+mobile_app = system.mobile("Ruuvi App")
+mobile_app / ARP / EAPOL
+
+mobile_app.set_permissions(
+    LOCATION, BLUETOOTH, ADMINISTRATIVE, UNCATEGORIZED,
+    NETWORK
 )
-system.online_resource("security-policy", url="https://ruuvi.com/terms/vulnerability-policy/",
-                       keywords=["security@ruuvi.com"]
+
+# Define browser
+browser = system.browser()
+browser / ARP
+
+# Define broadcasts
+broadcast = system.any("Broadcast")
+
+# BLE advertising data captured with 'btmon' and converted to tshark JSON.
+# The capture contains BLE 5.0 extended advertising events which use field
+# 'bthci_evt.le_ext_advts_event_type' instead of the legacy 'bthci_evt.le_advts_event_type'
+# that the toolsaf expects. The field must be renamed during conversion:
+# tshark -r capture.btsnoop -T json -Y "bthci_evt.code == 0x3e" | python3 -c "
+#   import json, sys; data = json.load(sys.stdin)
+#   for pkt in data:
+#       evt = pkt.get('_source',{}).get('layers',{}).get('bthci_evt',{})
+#       if 'bthci_evt.le_ext_advts_event_type' in evt:
+#           evt['bthci_evt.le_advts_event_type'] = evt['bthci_evt.le_ext_advts_event_type']
+#   json.dump(data, sys.stdout)" > ble.tshark.json
+
+# event_type 0x0013 = legacy ADV_IND (connectable, scannable, non-directed)
+
+# without "bthci_evt.code == 0x3e" >> KeyError: 'bthci_evt.bd_addr'
+# without evt['bthci_evt.le_advts_event_type'] = evt['bthci_evt.le_ext_advts_event_type'] >> KeyError: 'bthci_evt.le_advts_event_type'
+
+ble_ad = tags.broadcast(BLEAdvertisement(event_type=0x0013))
+gateway << ble_ad
+mobile_app << ble_ad
+
+multidns = (any_host / UDP(port=5353).multicast("224.0.0.251")).name("mDNS")
+igmp = any_host / IP(protocol=2).multicast("224.0.0.251")
+
+
+# Define backends
+firebase = system.backend("firebase").serve(TLS).dns("firebase-settings.crashlytics.com").dns("firebaseinappmessaging.googleapis.com")
+
+google_services = (system.backend("google services")
+    .serve(TLS, UDP(port=443), TCP(port=5228))
+    .dns("region1.app-measurement.com")
+    .dns("app-measurement.com")
+    .dns("connectivitycheck.gstatic.com")
+    .dns("geller-pa.googleapis.com")
+    .dns("taskassist-pa.googleapis.com")
+    .dns("www.googleapis.com")
+    .dns("cdn-content.ampproject.org")
+    .dns("prod-lt-playstoregatewayadapter-pa.googleapis.com")
+    .dns("mobile-gtalk.l.google.com")
+    .dns("www.gstatic.com")
+    .dns("cryptauthdevicesync.googleapis.com")
+    .dns("android.googleapis.com")
+    .dns("lhr25s10-in-f170.1e100.net")
+    .dns("tzhema-ad-in-f2.1e100.net")
 )
 
-# sensitive data
-user_email = system.data(["User e-mail"])
-measurements = system.data(["Measurements"])
-billing_info = system.data(["Billing info"])
+ruuvi_update = system.backend("ruuvi update").serve(TLS, TCP(port=22), HTTP).dns("fwupdate.ruuvi.com")
 
-# Mobile application
-# https://play.google.com/store/apps/details?id=com.ruuvi.station
-app_sw = mobile.software()
-app_sw.sbom(file_path="mobile-app-sbom.json")
+ruuvi_network = system.backend("ruuvi network").serve(TLS, UDP(port=443), TCP(port=22), HTTP).dns("network.ruuvi.com").dns("ruuvi.com")
 
-# More DNS names (why?)
-backend_2.dns("api.github.com").dns("objects.githubusercontent.com")
-# Gateway NTP servers
-gateway.ignore_name_requests("time.google.com", "time.nist.gov", "pool.ntp.org", "ntp1.glb.nist.gov")
+ruuvi_web_ui = system.backend("ruuvi web UI").serve(TLS).dns("webui.ruuvi.com").dns("station.ruuvi.com")
 
-# Cookies
-cookies = user.cookies()
-cookies.set({
-    "crisp-client/*": (".ruuvi.com", "/", "Crisp chat session cookie"),
-    "_fbp": (".ruuvi.com", "/", "Facebook?"),
-    "FPAU": (".ruuvi.com", "/", "Google analytics"),
-    "FPID": (".ruuvi.com", "/", "Google analytics"),
-    "FPLC": (".ruuvi.com", "/", "Google analytics?"),
-    "_ga": (".ruuvi.com", "/", "Google analytics"),
-    "_ga_*": (".ruuvi.com", "/", "Google analytics"),
-    "_gcl_au": (".ruuvi.com", "/", "Google analytics"),
-    "station_status": (".ruuvi.com", "/", "FIXME"),
-    "station_user": (".ruuvi.com", "/", "FIXME"),
-    "_tt_enable_cookie": (".ruuvi.com", "/", "FIXME"),
-    "_ttp": (".ruuvi.com", "/", "FIXME"),
-})
+ntp = system.backend("google NTP").serve(NTP).dns("time.google.com").ip("216.239.35.0")
 
-# Concrete addresses
-system.network().mask("192.168.0.0/16")
-system.network().mask("10.10.0.0/24")
-gateway.hw("30:c6:f7:52:db:5c")
-tags.hw("fd:5b:e3:39:f7:24")
-mobile.hw("c2:77:15:ab:b5:b0")
+adware = (system.backend("possibly adware")
+    .serve(
+        TLS,
+        TCP(port=22),
+        HTTP,
+        TCP(port=111),
+        UDP(port=111),
+        TCP(port=6666),
+        TCP(port=7777),
+        TCP(port=8100)
+    )
+    .dns("api.sdk.cqsjd.xyz")
+    .dns("imp.adx.cqsjd.xyz")
+    .dns("event.sdk.cqsjd.xyz")
+)
 
-# Infrastructure Raspberry can do whatever
-infra = system.infra().hw("dc:a6:32:28:34:e3")
+aws = (system.backend("AWS")
+    .serve(TLS, HTTP)
+    .dns("s3-r-w.eu-central-1.amazonaws.com")
+    .dns("ec2-51-102-227-69.eu-central-1.compute.amazonaws.com")
+)
 
-# Ignore False positives
-system.ignore(file_type="vulnerabilities").properties(
-    "vulnz:commons-beanutils:cve-2019-10086",
-    "vulnz:commons-beanutils:cve-2014-0114",
-    "vulnz:commons-collections:cve-2015-6420",
-    "vulnz:commons-collections:cve-2015-7501",
-    "vulnz:commons-collections:cve-2015-8545",
-    "vulnz:commons-collections:cve-2017-15708",
-).at(mobile.software()).because("Does not serialize/deserialize custom Java data")
+codebase = (system.backend("code base github")
+    .serve(TLS, TCP(port=22), HTTP)
+    .dns("api.github.com")
+    .dns("github.com")
+    .dns("release-assets.githubusercontent.com")
+    .dns("raw.githubusercontent.com")
+)
 
-system.ignore(file_type="vulnerabilities").properties(
-    "vulnz:kotlin:cve-2019-10101",
-    "vulnz:kotlin:cve-2019-10103",
-    "vulnz:kotlin:cve-2019-10102"
-).at(mobile.software()).because("Not feasible to MITM the application build process")
+digicert = (system.backend("digicert")
+    .serve(HTTP, TLS, TCP(port=1935))
+    .dns("ocsp.digicert.cn.w.cdngslb.com")
+    .ip("43.109.101.3")
+)
 
-system.ignore(file_type="vulnerabilities").properties(
-    "vulnz:okhttp:cve-2016-2402",
-).at(mobile.software()).because("For old version")
+cloudfront = system.backend("cloudfront").serve(TLS, HTTP).dns("d2fw7fwzxnysn2.cloudfront.net")
 
-system.ignore(file_type="ssh-audit").properties(
-    "ssh-audit:cve-2021-41617",
-    "ssh-audit:cve-2020-15778",
-).at(web_1 / SSH, web_2 / SSH).because("Vulnerabilies only in certain configurations")
+browser_services = (system.backend("browser/windows services").serve(TLS, HTTP, UDP(port=443))
+    .dns("detectportal.firefox.com")
+    .dns("ecs.office.com")
+    .dns("s-0005.dual-s-msedge.net")
+    .dns("oneclient.sfx.ms")
+    .dns("a124.dscd.akamai.net")
+    .dns("edge.microsoft.com")
+    .dns("ax-0002.ax-msedge.net")
+    .dns("v20.events.data.microsoft.com")
+    .dns("msedge.b.tlu.dl.delivery.mp.microsoft.com")
+    .dns("res.public.onecdn.static.microsoft")
+    .dns("filedownload.csw.lenovo.com")
+    .dns("prod.client.wosc.services.microsoft.com")
+    .dns("msedge.api.cdp.microsoft.com")
+    .dns("cp801.prod.do.dsp.mp.microsoft.com")
+    .dns("settings-win.data.microsoft.com")
+    .dns("v10.events.data.microsoft.com")
+    .dns("telemetry-incoming.r53-2.services.mozilla.com")
+    .dns("glb.api.prod.dcat.dsp.trafficmanager.net")
+    .dns("mozilla-ohttp.fastly-edge.com")
+    .dns("onedscolprduks02.uksouth.cloudapp.azure.com")
+    .dns("res-8.public.onecdn.static.microsoft.cdn.cloudflare.net")
+    .dns("e86303.dscx.akamaiedge.net")
+    .dns("settings-prod-weu-2.westeurope.cloudapp.azure.com")
+    .dns("onedscolprdneu03.northeurope.cloudapp.azure.com")
+    .dns("e12437.d.akamaiedge.net")
+)
 
-system.ignore(file_type="ssh-audit").properties(
-    "ssh-audit:cve-2018-15919",
-    "ssh-audit:cve-2018-15473",
-    "ssh-audit:cve-2016-20012",
-).at(web_1 / SSH, web_2 / SSH).because("Not considered serious issue")
+browser.ignore_name_requests("g.live.com", "mr-b01.tm-azurefd.net", "www.bing.com")
 
-system.ignore(file_type="ssh-audit").properties(
-    "ssh-audit:del:kex:ecdh-sha2-nistp256",  # SSH audit: Delete kex ecdh-sha2-nistp256
-    "ssh-audit:del:kex:ecdh-sha2-nistp384",  # SSH audit: Delete kex ecdh-sha2-nistp384
-    "ssh-audit:del:kex:ecdh-sha2-nistp521",  # SSH audit: Delete kex ecdh-sha2-nistp521
-    "ssh-audit:del:key:ecdsa-sha2-nistp256", # SSH audit: Delete key ecdsa-sha2-nistp256
-    "ssh-audit:del:key:ssh-rsa"              # SSH audit: Delete key ssh-rsa
-).at(web_1 / SSH, web_2 / SSH).because("Key deletion is not relevant")
+# Define SBOMs
+google_services.software().sbom(["web_server"])
+ruuvi_update.software().sbom(["openssh", "debian_linux", "linux_kernel", "http_server"])
+ruuvi_network.software().sbom(["openssh", "ubuntu_linux", "elastic_load_balancing"])
+adware.software().sbom(["openssh", "nginx", "lua-nginx-module", "openresty"])
+aws.software().sbom(["elastic_load_balancing"])
+codebase.software().sbom(["fastly", "varnish_cache"])
+digicert.software().sbom(["netscaler_application_delivery_controller"])
+cloudfront.software().sbom(["amazon_cloudfront"])
 
-system.ignore(file_type="ssh-audit").properties(
-    "ssh-audit:del:kex:diffie-hellman-group14-sha1", # SSH audit: Delete kex diffie-hellman-group14-sha1
-    "ssh-audit:del:mac:hmac-sha1",                   # SSH audit: Delete mac hmac-sha1
-    "ssh-audit:del:mac:hmac-sha1-etm@openssh.com"    # SSH audit: Delete mac hmac-sha1-etm@openssh.com
-).at(web_2 / SSH).because("Key deletion is not relevant")
+# Define connections
+mobile_app >> any_host / DNS / ICMP
+mobile_app >> firebase / TLS
+mobile_app >> google_services / TLS / HTTP / UDP(port=443)
+mobile_app >> ruuvi_network / TLS
+mobile_app >> adware / TLS
+mobile_app >> aws / TLS
+mobile_app >> codebase / TLS
+mobile_app >> broadcast / DHCP().broadcast()
+
+gateway >> any_host / DNS
+gateway >> ruuvi_network / TLS
+gateway >> ruuvi_update / TLS
+gateway >> broadcast / DHCP().broadcast()
+gateway >> ntp / NTP
+gateway >> multidns
+gateway >> igmp
+
+browser >> any_host / DNS
+browser >> ruuvi_web_ui / TLS
+browser >> ruuvi_network / TLS
+browser >> browser_services / TLS
+browser >> digicert / HTTP
+browser >> codebase / TLS
+browser >> cloudfront / TLS
+
+# Ignoring non exploitable results
+system.ignore(file_type="shodan").properties(
+        "shodan:heartbleed"
+    ).at().because("Not exploitable")
 
 system.ignore(file_type="testssl").properties(
-    "testssl:cipher_order" # Testssl.sh (cipher_order): NOT a cipher order configured
-).at(web_2 / TLS).because("Provided cypher order is a neglectable issue")
-
-system.ignore(file_type="testssl").properties(
-    "testssl:BREACH"      # Testssl.sh (BREACH): potentially VULNERABLE, gzip HTTP compression detected  - only supplied '/' tested
-).at(web_1 / TLS, web_2 / TLS, backend_2 / TLS).because("Does not reflect user input or any secret in HTTP response bodies")
-
-system.ignore(file_type="zap").properties(
-    "zap:10038",   # ZED Attack Proxy (10038): Content Security Policy (CSP) Header Not Set
-    "zap:10020-1", # ZED Attack Proxy (10020-1): Missing Anti-clickjacking Header
-    "zap:10098",   # ZED Attack Proxy (10098): Cross-Domain Misconfiguration
-    "zap:10202",   # ZED Attack Proxy (10202): Absence of Anti-CSRF Tokens
-).at(web_1 / TLS, web_2 / TLS).because("Not considered critical at this point")
+        "testssl:BREACH",
+        "testssl:cert_trust",
+        "testssl:CRIME_TLS",
+        "testssl:cert_expirationStatus",
+        "testssl:cert_notAfter",
+        "testssl:fallback_SCSV"
+    ).at().because("Not exploitable")
 
 
 if __name__ == "__main__":
