@@ -6,10 +6,19 @@
 
 from toolsaf.main import Builder, ARP, ICMP, EAPOL, HTTP, BLEAdvertisement, TLS, SSH, DHCP, NTP, DNS
 
-system = Builder.new("Ruuvi Gateway & Tags")
-system.tag("ruuvi")
+system = Builder.new("Ruuvi Gateway & Tags (with setup net)")
+system.tag("ruuvi-setup-network")
+# networks
+net = system.network()  # default network
+setup_net = system.network("setup")
 
-gateway = system.device("Ruuvi Gateway").serve(EAPOL, DHCP, ARP, ICMP, DNS(captive=True))
+gateway = system.device("Ruuvi Gateway").serve(
+    EAPOL().in_network(setup_net),
+    DHCP().in_network(setup_net),
+    ARP().in_network(setup_net),
+    ICMP().in_network(setup_net),
+    DNS(captive=True).in_network(setup_net),
+)
 setup_http = gateway / HTTP(auth=True)
 
 tags = system.device("Ruuvi Tags")
